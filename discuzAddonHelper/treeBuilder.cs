@@ -8,13 +8,49 @@ using System.Windows.Forms;
 
 namespace discuzAddonHelper
 {
-    public class treeBuilder
+    /// <summary>
+    /// 节点增加委托
+    /// </summary>
+    /// <param name="tree">节点集</param>
+    /// <param name="key">节点索引，如果不需要请填写 null</param>
+    /// <param name="value">节点值</param>
+    /// <param name="tag">节点备注，请参照 TreeNode.Tag 内容</param>
+    /// <returns>子节点的节点集</returns>
+    public delegate TreeNodeCollection AddNodeDele(TreeNodeCollection tree, string key, string value, string tag);
+
+    /// <summary>
+    /// 任务完成委托
+    /// </summary>
+    public delegate void WorkFinishDele();
+
+    /// <summary>
+    /// 根据目录文件内容填充 TreeView
+    /// </summary>
+    class treeBuilder
     {
-        Form1.AddNodeDele _addNode;
-        Form1.WorkFinishDele _workFinish;
+        /// <summary>
+        /// 节点增加委托
+        /// </summary>
+        AddNodeDele _addNode;
+
+        /// <summary>
+        /// 任务完成委托
+        /// </summary>
+        WorkFinishDele _workFinish;
+
+        /// <summary>
+        /// 应用根目录
+        /// </summary>
         DirectoryInfo _dir;
+
+        /// <summary>
+        /// TreeView 的根节点的 TreeNodeCollection
+        /// </summary>
         TreeNodeCollection _tree;
 
+        /// <summary>
+        /// (PHP) 文件处理标记
+        /// </summary>
         [Flags]
         enum pL
         {
@@ -39,6 +75,9 @@ namespace discuzAddonHelper
             hasChinese = 8
         }
 
+        /// <summary>
+        /// 文本内容索引器
+        /// </summary>
         class Content {
             private char[] _content;
 
@@ -70,9 +109,19 @@ namespace discuzAddonHelper
             }
         }
 
+        /// <summary>
+        /// 文本内容
+        /// </summary>
         Content content;
 
-        public treeBuilder(DirectoryInfo dir, TreeNodeCollection tree, Form1.AddNodeDele addNode, Form1.WorkFinishDele workFinish)
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="dir">应用目录的 DirectoryInfo</param>
+        /// <param name="tree">TreeView 的根节点的 TreeNodeCollection</param>
+        /// <param name="addNode">节点增加委托</param>
+        /// <param name="workFinish">任务完成委托</param>
+        public treeBuilder(DirectoryInfo dir, TreeNodeCollection tree, AddNodeDele addNode, WorkFinishDele workFinish)
         {
             this._dir = dir;
             this._tree = tree;
@@ -80,12 +129,20 @@ namespace discuzAddonHelper
             this._workFinish = workFinish;
         }
 
+        /// <summary>
+        /// 线程启动
+        /// </summary>
         public void Work() {
             _Work(_dir, _tree);
-            _workFinish(); // remove loading
+            _workFinish();
             
         }
 
+        /// <summary>
+        /// 处理目录内容
+        /// </summary>
+        /// <param name="dir">目录的 DirectoryInfo</param>
+        /// <param name="tree">目录对应的 TreeNodeCollection</param>
         private void _Work(DirectoryInfo dir, TreeNodeCollection tree)
         {
             DirectoryInfo[] dirs = dir.GetDirectories();
@@ -123,6 +180,11 @@ namespace discuzAddonHelper
             }
         }
 
+        /// <summary>
+        /// 文件处理分配
+        /// </summary>
+        /// <param name="tree">文件对应的 TreeNodeCollection</param>
+        /// <param name="type">文件类型 (P, H, X)</param>
         private void _Work_F(TreeNodeCollection tree, string type)
         {
             switch (type)
@@ -180,11 +242,11 @@ namespace discuzAddonHelper
                     {
                         _lang = _val.ToString();
                         _val.Clear();
-                        temp = 1;
                         i++;
 
-                        if ((lang & pL.hasChinese) == pL.hasChinese)
+                        if ((lang & pL.isSpecial) == pL.isSpecial) // 对于lang函数，匹配结束点为lang函数的结束点
                         {
+                            temp = 1;
                             while (i < l)
                             {
                                 switch (content[i++])
@@ -202,7 +264,11 @@ namespace discuzAddonHelper
                                     break;
                                 }
                             }
-                            _addNode(tree, null, "[C:" + quota + "]" + _lang, string.Concat("C|", find, '|', i + temp - find, '|', quota, "|1|1|", _lang));
+                        }
+
+                        if ((lang & pL.hasChinese) == pL.hasChinese)
+                        {
+                            _addNode(tree, null, "[C:" + quota + "]" + _lang, string.Concat("C|", find, '|', i - find, '|', quota, "|1|1|", _lang));
                         }
                         else
                         {
@@ -268,7 +334,7 @@ namespace discuzAddonHelper
 
                         continue;
                     }
-                    else if (lang == pL.chineseWork && find > -1)
+                    else if ((lang & pL.chineseWork) == pL.chineseWork && find > -1)
                     {
                         _lang = _val.ToString().TrimStart();
                         _val.Clear();

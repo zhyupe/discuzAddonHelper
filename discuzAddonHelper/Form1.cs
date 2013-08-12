@@ -13,6 +13,9 @@ namespace discuzAddonHelper
 {
     public partial class Form1 : Form
     {
+        string iden = "";
+        bool loaded = false;
+
         public Form1()
         {
             InitializeComponent();
@@ -89,10 +92,40 @@ namespace discuzAddonHelper
             _t_树形图.Nodes.Clear();
             _t_树形图.Nodes.Add("加载中, 请稍候 ...");
 
-            (new Thread((new treeBuilder(new DirectoryInfo(_l_插件目录.Text), _t_树形图.Nodes, new AddNodeDele(AddNode), new WorkFinishDele(WorkFinish)).Work))).Start();
+            DirectoryInfo di = new DirectoryInfo(_l_插件目录.Text);
+            iden = di.Name;
+            (new Thread((new treeBuilder(di, _t_树形图.Nodes, new AddNodeDele(AddNode), new WorkFinishDele(WorkFinish)).Work))).Start();
         }
 
-        public delegate TreeNodeCollection AddNodeDele(TreeNodeCollection tree, string key, string value, string tag);
+        private void button3_Click(object sender, EventArgs e)
+        {
+            if (!loaded || _t_树形图.Nodes.Count == 0)
+            {
+                MessageBox.Show("文件检查未完成或检查结果为空");
+            }
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            if (!loaded || _t_树形图.Nodes.Count == 0)
+            {
+                MessageBox.Show("文件检查未完成或检查结果为空");
+            }
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void button6_Click(object sender, EventArgs e)
+        {
+            if (!loaded || _t_树形图.Nodes.Count == 0)
+            {
+                MessageBox.Show("文件检查未完成或检查结果为空");
+            }
+        }
+
         TreeNodeCollection AddNode(TreeNodeCollection tree, string key, string value, string tag)
         {
             if (this.InvokeRequired == false)
@@ -116,8 +149,6 @@ namespace discuzAddonHelper
                 return (TreeNodeCollection)this.Invoke(addNode, tree, key, value, tag);
             }
         }
-
-        public delegate void WorkFinishDele();
         void WorkFinish()
         {
             if (this.InvokeRequired == false)
