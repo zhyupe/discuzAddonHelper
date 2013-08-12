@@ -89,7 +89,7 @@ namespace discuzAddonHelper
             _t_树形图.Nodes.Clear();
             _t_树形图.Nodes.Add("加载中, 请稍候 ...");
 
-            (new Thread((new treeBuilder(new DirectoryInfo(_l_插件目录.Text), _t_树形图.Nodes, new AddNodeDele(AddNode)).Work))).Start();
+            (new Thread((new treeBuilder(new DirectoryInfo(_l_插件目录.Text), _t_树形图.Nodes, new AddNodeDele(AddNode), new WorkFinishDele(WorkFinish)).Work))).Start();
         }
 
         public delegate TreeNodeCollection AddNodeDele(TreeNodeCollection tree, string key, string value, string tag);
@@ -105,15 +105,30 @@ namespace discuzAddonHelper
                 {
                     tree.Add(key, value);
                 }
-                
-                tree[tree.Count - 1].Tag = tag;
 
+                tree[tree.Count - 1].Tag = tag;
+                
                 return tree[tree.Count - 1].Nodes;
             }
             else
             {
                 AddNodeDele addNode = new AddNodeDele(AddNode);
                 return (TreeNodeCollection)this.Invoke(addNode, tree, key, value, tag);
+            }
+        }
+
+        public delegate void WorkFinishDele();
+        void WorkFinish()
+        {
+            if (this.InvokeRequired == false)
+            {
+                _t_树形图.Nodes[0].Remove();
+                MessageBox.Show("文件检查完毕");
+            }
+            else
+            {
+                WorkFinishDele workFinish = new WorkFinishDele(WorkFinish);
+                this.Invoke(workFinish);
             }
         }
     }

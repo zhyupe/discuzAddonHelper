@@ -11,21 +11,79 @@ namespace discuzAddonHelper
     public class treeBuilder
     {
         Form1.AddNodeDele _addNode;
+        Form1.WorkFinishDele _workFinish;
         DirectoryInfo _dir;
         TreeNodeCollection _tree;
 
-        char[] content;
+        [Flags]
+        enum pL
+        {
+            /// <summary>
+            /// 函数处理标记
+            /// </summary>
+            functionWork = 1,
 
-        public treeBuilder(DirectoryInfo dir, TreeNodeCollection tree, Form1.AddNodeDele addNode)
+            /// <summary>
+            /// 中文处理标记
+            /// </summary>
+            chineseWork = 2,
+
+            /// <summary>
+            /// 特别标记（Lang 函数 / 去掉前缀符号）
+            /// </summary>
+            isSpecial = 4,
+
+            /// <summary>
+            /// 包含中文字符 (仅适用于函数处理)
+            /// </summary>
+            hasChinese = 8
+        }
+
+        class Content {
+            private char[] _content;
+
+            public Content(char[] content)
+            {
+                _content = content;
+            }
+
+            public int Length
+            {
+                get
+                {
+                    return _content.Length;
+                }
+            }
+            
+            public char this[int i]
+            {
+                get
+                {
+                    if (_content[i] == '\r')
+                        _content[i] = '\n';
+                    return _content[i];
+                }
+                set
+                {
+                    _content[i] = value;
+                }
+            }
+        }
+
+        Content content;
+
+        public treeBuilder(DirectoryInfo dir, TreeNodeCollection tree, Form1.AddNodeDele addNode, Form1.WorkFinishDele workFinish)
         {
             this._dir = dir;
             this._tree = tree;
             this._addNode = addNode;
+            this._workFinish = workFinish;
         }
 
         public void Work() {
             _Work(_dir, _tree);
-            _tree[0].Remove(); // remove loading
+            _workFinish(); // remove loading
+            
         }
 
         private void _Work(DirectoryInfo dir, TreeNodeCollection tree)
@@ -33,7 +91,7 @@ namespace discuzAddonHelper
             DirectoryInfo[] dirs = dir.GetDirectories();
             foreach (DirectoryInfo f in dirs)
             {
-                _Work(f, _addNode(tree, f.Name, "[D]" + f.Name, "D|" + f.FullName));
+                _Work(f, _addNode(tree, f.Name, "[F]" + f.Name, "F|" + f.FullName));
             }
 
             FileInfo[] files = dir.GetFiles();
@@ -57,7 +115,7 @@ namespace discuzAddonHelper
 
                 FileStream fs = f.OpenRead();
                 StreamReader sr = new StreamReader(fs, Encoding.GetEncoding("GBK"));
-                content = sr.ReadToEnd().ToCharArray();
+                content = new Content(sr.ReadToEnd().ToCharArray());
                 sr.Close();
                 fs.Close();
 
@@ -91,7 +149,7 @@ namespace discuzAddonHelper
             int l = content.Length;
 
             int find = -1;
-            int lang = -1;
+            pL lang = 0;
 
             int status = -1;
             string _status = "<?";
@@ -106,30 +164,56 @@ namespace discuzAddonHelper
 
             while (i < l)
             {
-                if (content[i] == '\r')
-                    content[i] = '\n';
-
-                if (lang == 1 && find > -1)
+                if ((lang & pL.functionWork) == pL.functionWork && find > -1)
                 {
-                    if (content[i] == '\\')
+                    if (content[i] > 0x4e00 && content[i] < 0x9fff)
+                    {
+                        lang = lang | pL.hasChinese;
+                    }
+                    else if (content[i] == '\\')
                     {
                         _val.Append(content[i++]);
                         _val.Append(content[i++]);
                         continue;
                     }
-
-                    if (content[i++] == quota)
+                    else if (content[i] == quota)
                     {
                         _lang = _val.ToString();
                         _val.Clear();
+                        temp = 1;
+                        i++;
 
-                        _addNode(tree, null, "[L]" + _lang, string.Concat("L|", find, '|', i - find, '|', quota, '|', _lang));
+                        if ((lang & pL.hasChinese) == pL.hasChinese)
+                        {
+                            while (i < l)
+                            {
+                                switch (content[i++])
+                                {
+                                    case '(':
+                                        temp++;
+                                        break;
+                                    case ')':
+                                        temp--;
+                                        break;
+                                }
+
+                                if (temp == 0)
+                                {
+                                    break;
+                                }
+                            }
+                            _addNode(tree, null, "[C:" + quota + "]" + _lang, string.Concat("C|", find, '|', i + temp - find, '|', quota, "|1|1|", _lang));
+                        }
+                        else
+                        {
+                            _addNode(tree, null, "[L]" + _lang, string.Concat("L|", find, '|', i - find, '|', _lang));
+                        }
                         find = -1;
-                        lang = -1;
+                        lang = 0;
                         quota = '-';
                         continue;
                     }
-                    _val.Append(content[i - 1]);
+                    _val.Append(content[i++]);
                 }
                 else
                 {
@@ -168,15 +252,23 @@ namespace discuzAddonHelper
                     {
                         if (find == -1)
                         {
+                            if (i > 0 && content[i - 1] == quota)
+                            {
+                                lang = pL.chineseWork | pL.isSpecial;
+                                find = i - 1;
+                            }
+                            else
+                            {
+                                lang = pL.chineseWork;
+                                find = i;
+                            }
                             start = 0;
-                            find = i;
-                            lang = 0;
                         }
                         _val.Append(content[i++]);
 
                         continue;
                     }
-                    else if (lang == 0 && find > -1)
+                    else if (lang == pL.chineseWork && find > -1)
                     {
                         _lang = _val.ToString().TrimStart();
                         _val.Clear();
@@ -185,9 +277,9 @@ namespace discuzAddonHelper
                         temp = content[i] == quota ? 1 : 0;
                         // 如果中文之后即为字符串，则去掉最后一个引号（增加一位识别）
 
-                        _addNode(tree, null, "[C:" + quota + "]" + _lang, string.Concat("C|", find, '|', i + temp - find, '|', quota, '|', temp, '|', _lang));
+                        _addNode(tree, null, "[C:" + quota + "]" + _lang, string.Concat("C|", find, '|', i + temp - find, '|', quota, '|', ((lang & pL.isSpecial) == pL.isSpecial ? 1 : 0), '|', temp, '|', _lang));
                         find = -1;
-                        lang = -1;
+                        lang = 0;
 
                         // temp 归零
                         temp = 0;
@@ -209,7 +301,7 @@ namespace discuzAddonHelper
                         case '\\':
                             i += 1; // 跳过下一个字符
                             break;
-                        #endregion 
+                        #endregion
                         #region 注释 // /* #
                         case '/':
                             if (content[i] == '/')
@@ -239,7 +331,11 @@ namespace discuzAddonHelper
                             }
 
                             if (start == 3)
-                                lang = 1;
+                                if ((lang & pL.isSpecial) != pL.isSpecial)
+                                {
+                                    find = i;
+                                }
+                                lang = lang | pL.functionWork;
 
                             break;
                         case '"':
@@ -253,7 +349,7 @@ namespace discuzAddonHelper
                             }
 
                             if (start == 3)
-                                lang = 1;
+                                lang = lang | pL.functionWork;
 
                             break;
                         #endregion
@@ -281,7 +377,7 @@ namespace discuzAddonHelper
                                 status = -1;
                                 _status = _val.ToString();
                                 i++;
-                                 temp = i + _val.Length;
+                                temp = i + _val.Length;
                                 _val.Clear();
                             }
                             break;
@@ -320,9 +416,9 @@ namespace discuzAddonHelper
                                 content[i + 4], content[i + 5], content[i + 6], content[i + 7],
                                 content[i + 8], content[i + 9]).ToLower() == "howmessage")
                             {
-                                find = i - 1;
                                 i += 10;
                                 start = 2;
+                                lang = 0;
                             }
                             else
                             {
@@ -336,9 +432,9 @@ namespace discuzAddonHelper
                             if ((start == 0 || start == 3) && string.Concat(
                                 content[i], content[i + 1], content[i + 2], content[i + 3]).ToLower() == "pmsg")
                             {
-                                find = i - 1;
                                 i += 4;
                                 start = 2;
+                                lang = 0;
                             }
                             else
                             {
@@ -355,6 +451,7 @@ namespace discuzAddonHelper
                                 find = i - 1;
                                 i += 3;
                                 start = 2;
+                                lang = pL.isSpecial;
                             }
                             else
                             {
@@ -385,7 +482,8 @@ namespace discuzAddonHelper
                             break;
                         #endregion
                         default:
-                            start = 1;
+                            if (start != 0)
+                                start = 1;
                             break;
                     }
                 }
@@ -445,7 +543,7 @@ namespace discuzAddonHelper
                         _lang = _val.ToString().TrimStart();
                         _val.Clear();
 
-                        _addNode(tree, null, "[C]" + _lang, string.Concat("C|", find, '|', i + 1 - find, '|', _lang));
+                        _addNode(tree, null, "[C]" + _lang, string.Concat("C|", find, '|', i + 1 - find, "||||", _lang));
                         find = -1;
                     }
 
@@ -490,7 +588,7 @@ namespace discuzAddonHelper
                     _lang = _val.ToString().TrimStart();
                     _val.Clear();
 
-                    _addNode(tree, null, "[C]" + _lang, string.Concat("C|", find, '|', i + 1 - find, '|', _lang));
+                    _addNode(tree, null, "[C]" + _lang, string.Concat("C|", find, '|', i + 1 - find, "||||", _lang));
                     find = -1;
                 }
                 i++;
