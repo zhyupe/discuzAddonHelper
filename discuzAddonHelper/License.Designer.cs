@@ -195,7 +195,7 @@ namespace discuzAddonHelper
             this.Name = "License";
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Discuz 应用编码转换助手";
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
