@@ -16,21 +16,24 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
+using System.Text;
+using System.Runtime.InteropServices;
 
 namespace discuzAddonHelper
 {
-    static class Program
+    static class chineseConverter
     {
-        /// <summary>
-        /// 应用程序的主入口点。
-        /// </summary>
-        [STAThread]
-        static void Main()
+        [DllImport("KERNEL32.DLL", CharSet = CharSet.Unicode)]
+        public static extern int LCMapString(int Locale, uint dwMapFlags, [MarshalAs(UnmanagedType.LPTStr)] string lpSrcStr, int cchSrc, IntPtr lpDestStr, int cchDest);
+
+        public static string Do(string text)
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+            int num = text.Length * 2 + 2;
+            IntPtr intPtr = Marshal.AllocHGlobal(num);
+            LCMapString(2052, 67108864u, text, -1, intPtr, num);
+            string result = Marshal.PtrToStringUni(intPtr);
+            Marshal.FreeHGlobal(intPtr);
+            return result;
         }
     }
 }

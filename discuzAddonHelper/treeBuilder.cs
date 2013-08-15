@@ -1,4 +1,19 @@
-﻿using System;
+﻿/* * 
+ * Copyright 2010-2013 DianFen Network
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -72,7 +87,12 @@ namespace discuzAddonHelper
             /// <summary>
             /// 包含中文字符 (仅适用于函数处理)
             /// </summary>
-            hasChinese = 8
+            hasChinese = 8,
+
+            /// <summary>
+            /// 处理 Lang 函数的第二参数
+            /// </summary>
+            secondWork = 16
         }
 
         /// <summary>
@@ -234,17 +254,21 @@ namespace discuzAddonHelper
                     }
                     else if (content[i] == '\\')
                     {
-                        _val.Append(content[i++]);
-                        _val.Append(content[i++]);
+                        if (content[i + 1] != quota)
+                        {
+                            _val.Append('\\');
+                        }
+                        
+                        _val.Append(content[i + 1]);
+                        i += 2;
                         continue;
                     }
                     else if (content[i] == quota)
                     {
-                        _lang = _val.ToString();
-                        _val.Clear();
+                        quota = '-';
                         i++;
-
-                        if ((lang & pL.isSpecial) == pL.isSpecial) // 对于lang函数，匹配结束点为lang函数的结束点
+                        
+                        if ((lang & pL.isSpecial) == pL.isSpecial) // 对于lang函数，取第二参数追加，且匹配结束点为lang函数的结束点
                         {
                             temp = 1;
                             while (i < l)
@@ -257,26 +281,52 @@ namespace discuzAddonHelper
                                     case ')':
                                         temp--;
                                         break;
+
+                                    case '\'':
+                                        if (temp == 1 && (lang & pL.secondWork) == 0 && _val.Length > 7 && _val.ToString(0, 7).ToLower() == "plugin/")
+                                        {
+                                            quota = '\'';
+                                            _val.Remove(0, 7);
+                                            _val.Append(':');
+
+                                            lang = lang | pL.secondWork;
+                                        }
+                                        break;
+                                    case '"':
+                                        if (temp == 1 && (lang & pL.secondWork) == 0 && _val.Length > 7 && _val.ToString(0, 7).ToLower() == "plugin/")
+                                        {
+                                            quota = '"';
+                                            _val.Remove(0, 7);
+                                            _val.Append(':');
+
+                                            lang = lang | pL.secondWork;
+                                        }
+                                        break;
                                 }
 
-                                if (temp == 0)
+                                if (temp == 0 || quota != '-')
                                 {
                                     break;
                                 }
                             }
                         }
 
-                        if ((lang & pL.hasChinese) == pL.hasChinese)
+                        if (quota == '-')
                         {
-                            _addNode(tree, null, "[C:" + quota + "]" + _lang, string.Concat("C|", find, '|', i - find, '|', quota, "|1|1|", _lang));
+                            _lang = _val.ToString();
+                            _val.Clear();
+
+                            if ((lang & pL.hasChinese) == pL.hasChinese)
+                            {
+                                _addNode(tree, null, "[C:F]" + _lang, string.Concat("C|", find, '|', i - find, "|F|1|1|", _lang));
+                            }
+                            else
+                            {
+                                _addNode(tree, null, "[L]" + _lang, string.Concat("L|", find, '|', i - find, '|', _lang));
+                            }
+                            find = -1;
+                            lang = 0;
                         }
-                        else
-                        {
-                            _addNode(tree, null, "[L]" + _lang, string.Concat("L|", find, '|', i - find, '|', _lang));
-                        }
-                        find = -1;
-                        lang = 0;
-                        quota = '-';
                         continue;
                     }
                     _val.Append(content[i++]);
@@ -314,7 +364,7 @@ namespace discuzAddonHelper
                     }
                     #endregion
                     #region 识别中文
-                    if (content[i] > 0x4e00 && content[i] < 0x9fff)
+                    if (content[i] >= 0x4e00 && content[i] <= 0x9fff)
                     {
                         if (find == -1)
                         {
@@ -378,11 +428,11 @@ namespace discuzAddonHelper
                             {
                                 status = 2;
                             }
-                            find = i;
+                            find = i - 1;
                             break;
                         case '#':
                             status = 1;
-                            find = i;
+                            find = i - 1;
                             break;
                         #endregion
                         #region 字符串 ' "
@@ -397,12 +447,13 @@ namespace discuzAddonHelper
                             }
 
                             if (start == 3)
+                            {
                                 if ((lang & pL.isSpecial) != pL.isSpecial)
                                 {
-                                    find = i;
+                                    find = i - 1;
                                 }
                                 lang = lang | pL.functionWork;
-
+                            }
                             break;
                         case '"':
                             if (quota == '-')
@@ -415,8 +466,13 @@ namespace discuzAddonHelper
                             }
 
                             if (start == 3)
+                            {
+                                if ((lang & pL.isSpecial) != pL.isSpecial)
+                                {
+                                    find = i - 1;
+                                }
                                 lang = lang | pL.functionWork;
-
+                            }
                             break;
                         #endregion
                         #region 定界符 <? <<<
@@ -465,7 +521,7 @@ namespace discuzAddonHelper
                             start = 1;
                             break;
                         #endregion
-                        #region 重新判定符 , ; = . )
+                        #region 重新判定符 , ; = . ) \n
                         case ',':
                         case ';':
                         case '=':
@@ -615,7 +671,7 @@ namespace discuzAddonHelper
 
                     if (content[i++] == '{' && string.Concat(content[i], content[i + 1], content[i + 2], content[i + 3]) == "lang")
                     {
-                        find = i;
+                        find = i - 1;
                         i += 5;
                         lang = true;
                     }

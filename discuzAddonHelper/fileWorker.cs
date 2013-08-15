@@ -1,4 +1,19 @@
-﻿using System;
+﻿/* * 
+ * Copyright 2010-2013 DianFen Network
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -78,32 +93,28 @@ namespace discuzAddonHelper
         /// <summary>
         /// 执行任务并转码
         /// </summary>
-        /// <param name="stringBuilder_SC_GBK">新文件 stringBuilder (SC_GBK)</param>
-        /// <param name="stringBuilder_SC_UTF8">新文件 stringBuilder (SC_UTF8)</param>
-        /// <param name="stringBuilder_TC_UTF8">新文件 stringBuilder (TC_UTF8)</param>
-        /// <param name="stringBuilder_TC_BIG5">新文件 stringBuilder (TC_BIG5)</param>
+        /// <param name="stringBuilder">新文件 stringBuilder</param>
         /// <param name="content">原文件内容</param>
         /// <param name="lastEnd">上次替换结束位置</param>
         /// <returns>替换结束位置</returns>
         public int Convert(
-            ref StringBuilder stringBuilder_SC_GBK, ref StringBuilder stringBuilder_SC_UTF8,
-            ref StringBuilder stringBuilder_TC_UTF8, ref StringBuilder stringBuilder_TC_BIG5,
+            ref Dictionary<string, StringBuilder> stringBuilder,
             ref string content, int lastEnd)
         {
             string Behind = content.Substring(lastEnd, _Start - lastEnd);
-            stringBuilder_SC_GBK.Append(Behind)
+            stringBuilder["SC_GBK"].Append(Behind)
                 .Append(_Insert);
 
-            byte[] SC_Byte = gbk.GetBytes(Behind);
-            stringBuilder_SC_UTF8.Append(utf8.GetString(Encoding.Convert(gbk, utf8, SC_Byte)))
+            stringBuilder["SC_UTF8"].Append(Behind)
                 .Append(_Insert);
 
-            byte[] TC_Byte = Encoding.Convert(gbk, big5, SC_Byte);
-            stringBuilder_TC_BIG5.Append(big5.GetString(TC_Byte))
-                .Append(_Insert);
+            Behind = chineseConverter.Do(Behind);
+            string TC_Insert = chineseConverter.Do(_Insert);
+            stringBuilder["TC_BIG5"].Append(Behind)
+                .Append(TC_Insert);
 
-            stringBuilder_TC_UTF8.Append(utf8.GetString(Encoding.Convert(big5, utf8, TC_Byte)))
-                .Append(_Insert);
+            stringBuilder["TC_UTF8"].Append(Behind)
+                .Append(TC_Insert);
             return _End;
         }
 
@@ -146,7 +157,7 @@ namespace discuzAddonHelper
         /// <param name="FullName">文件位置</param>
         public fileWorker(string FullName)
         {
-            FileInfo f = new FileInfo(FullName);
+            f = new FileInfo(FullName);
             if (f.Exists)
             {
                 FileStream fs = f.OpenRead();
@@ -204,9 +215,12 @@ namespace discuzAddonHelper
 
             f.Delete();
 
-            StreamWriter sw = f.CreateText();
+            FileStream fs = f.Create();
+            StreamWriter sw = new StreamWriter(fs, Encoding.GetEncoding("GBK"));
+
             sw.Write(stringBuilder.ToString());
             sw.Close();
+            fs.Close();
 
             stringBuilder.Clear();
             Jobs.Clear();
@@ -220,37 +234,60 @@ namespace discuzAddonHelper
         public void Convert()
         {
             Jobs.Sort();
-
-            StringBuilder stringBuilder_SC_GBK = new StringBuilder();
-            StringBuilder stringBuilder_SC_UTF8 = new StringBuilder();
-            StringBuilder stringBuilder_TC_UTF8 = new StringBuilder();
-            StringBuilder stringBuilder_TC_BIG5 = new StringBuilder();
+            string[] character = { "SC_GBK", "SC_UTF8", "TC_UTF8", "TC_BIG5" };
+            Dictionary<string, StringBuilder> stringBuilder = new Dictionary<string, StringBuilder>();
+            foreach (string c1 in character)
+            {
+                stringBuilder[c1] = new StringBuilder();
+            }
             int lastEnd = 0;
 
             foreach (fileJob fJ in Jobs)
             {
                 lastEnd = fJ.Convert(
-                    ref stringBuilder_SC_GBK, ref stringBuilder_SC_UTF8, ref stringBuilder_TC_UTF8, ref stringBuilder_TC_BIG5, 
+                    ref stringBuilder,
                     ref content, lastEnd);
             }
 
             if (lastEnd < content.Length) // 将最后的内容写回文件
             {
                 string Last = content.Substring(lastEnd);
-                stringBuilder_SC_GBK.Append(Last);
-                stringBuilder_SC_UTF8.Append(Last);
-                stringBuilder_TC_BIG5.Append(Last);
-                stringBuilder_TC_UTF8.Append(Last);
+                foreach (string c2 in character)
+                {
+                    stringBuilder[c2].Append(Last);
+                }
             }
 
             f.Delete();
-            /*
-            StreamWriter sw = f.CreateText();
-            sw.Write(stringBuilder.ToString());
-            sw.Close();
+
+            FileStream fs;
+            StreamWriter sw;
+            string fileName = f.FullName.Substring(0, f.FullName.LastIndexOf('.') + 1);
+            Encoding enc;
+            foreach (string c3 in character)
+            {
+                switch (c3)
+                {
+                    case "SC_GBK":
+                        enc = Encoding.GetEncoding("GBK");
+                        break;
+                    case "TC_BIG5":
+                        enc = Encoding.GetEncoding("BIG5");
+                        break;
+                    default:
+                        enc = Encoding.UTF8;
+                        break;
+                }
+
+                fs = new FileStream(fileName + c3 + f.Extension, FileMode.Create);
+                sw = new StreamWriter(fs, enc);
+                sw.Write(stringBuilder[c3]);
+                sw.Close();
+                fs.Close();
+            }
 
             stringBuilder.Clear();
-            Jobs.Clear();*/
+            Jobs.Clear();
 
             content = null;
         }
