@@ -248,7 +248,7 @@ namespace discuzAddonHelper
             {
                 if ((lang & pL.functionWork) == pL.functionWork && find > -1)
                 {
-                    if (content[i] > 0x4e00 && content[i] < 0x9fff)
+                    if (content[i] > 0x4e00 && content[i] < 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
                     {
                         lang = lang | pL.hasChinese;
                     }
@@ -364,7 +364,7 @@ namespace discuzAddonHelper
                     }
                     #endregion
                     #region 识别中文
-                    if (content[i] >= 0x4e00 && content[i] <= 0x9fff)
+                    if (content[i] >= 0x4e00 && content[i] <= 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
                     {
                         if (find == -1)
                         {
@@ -657,7 +657,7 @@ namespace discuzAddonHelper
                 }
                 else
                 {
-                    if (content[i] > 0x4e00 && content[i] < 0x9fff)
+                    if (content[i] > 0x4e00 && content[i] < 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
                     {
                         if (find == -1)
                         {
@@ -703,7 +703,7 @@ namespace discuzAddonHelper
 
             while (i < l)
             {
-                if (content[i] > 0x4e00 && content[i] < 0x9fff)
+                if (content[i] > 0x4e00 && content[i] < 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
                 {
                     if (find == -1)
                     {
