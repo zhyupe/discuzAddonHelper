@@ -262,7 +262,7 @@ namespace discuzAddonHelper
 
             FileStream fs;
             StreamWriter sw;
-            string fileName = f.FullName.Substring(0, f.FullName.LastIndexOf('.') + 1);
+            string fileName = f.FullName.Substring(0, f.FullName.LastIndexOf('.'));
             Encoding enc;
             foreach (string c3 in character)
             {
@@ -279,7 +279,7 @@ namespace discuzAddonHelper
                         break;
                 }
 
-                fs = new FileStream(fileName + c3 + f.Extension, FileMode.Create);
+                fs = new FileStream(fileName + "_" + c3 + f.Extension, FileMode.Create);
                 sw = new StreamWriter(fs, enc);
                 sw.Write(stringBuilder[c3]);
                 sw.Close();
