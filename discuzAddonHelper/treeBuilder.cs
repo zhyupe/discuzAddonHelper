@@ -548,13 +548,21 @@ namespace discuzAddonHelper
                             }
                             break;
                         #endregion
-                        #region cpmsg 函数判定
+                        #region cpmsg | cpmsg_error 函数判定
                         case 'C':
                         case 'c':
                             if ((start == 0 || start == 3) && string.Concat(
                                 content[i], content[i + 1], content[i + 2], content[i + 3]).ToLower() == "pmsg")
                             {
                                 i += 4;
+                                start = 2;
+                                lang = 0;
+                            }
+                            else if ((start == 0 || start == 3) && string.Concat(
+                                content[i], content[i + 1], content[i + 2], content[i + 3], content[i + 4],
+                                content[i + 5], content[i + 6], content[i + 7], content[i + 8], content[i + 9]).ToLower() == "pmsg_error")
+                            {
+                                i += 10;
                                 start = 2;
                                 lang = 0;
                             }
