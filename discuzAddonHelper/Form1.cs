@@ -380,7 +380,7 @@ namespace discuzAddonHelper
                                 if (Configs[3] == "F")
                                 {
                                     fW.AddJob(Convert.ToInt32(Configs[1]), Convert.ToInt32(Configs[2]),
-                                        "'" + iden + "|" + langDictionary.AddNoKey(Configs[6], "P") + "'");
+                                        "'" + iden + ":" + langDictionary.AddNoKey(Configs[6], "P") + "'");
                                 }
                                 else
                                 {
@@ -400,8 +400,8 @@ namespace discuzAddonHelper
                             }
                             break;
                     }
-                    fW.Do();
                 }
+                fW.Do();
             }
             Form1.Log("提示: Form1.提取语言文件 正在重新检查文件");
             this.Invoke(new Action(() => { _b_检查文件_Work(new WorkFinishDele(_b_提取语言文件_Finish)); }));
@@ -677,10 +677,18 @@ namespace discuzAddonHelper
         }
         void AddLanguage(string English, string Chinese)
         {
-            ListViewItem item = new ListViewItem(English);
-            item.SubItems.Add(Chinese);
+            if (this.InvokeRequired == false)
+            {
+                ListViewItem item = new ListViewItem(English);
+                item.SubItems.Add(Chinese);
 
-            _t_语言包.Items.Add(item);
+                _t_语言包.Items.Add(item);
+            }
+            else
+            {
+                AddLanguageDele addLanguage = new AddLanguageDele(AddLanguage);
+                this.Invoke(addLanguage, English, Chinese);
+            }
         }
 
         private void Form1_Load(object sender, EventArgs e)

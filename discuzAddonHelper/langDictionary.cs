@@ -65,14 +65,16 @@ namespace discuzAddonHelper
         {
             if (_ChiToEng.ContainsKey(Chinese))
             {
-                return _ChiToEng[Chinese];
+                string English = _ChiToEng[Chinese];
+                _Used[Type + English.Substring(1)] = English;
+                return English;
             }
             else
             {
                 //生成临时索引值
                 string English = Guid.NewGuid().ToString();
                 Add(English, Chinese, Type);
-                return English;
+                return English.Substring(1);
             }
         }
 
@@ -125,12 +127,12 @@ namespace discuzAddonHelper
             if (_OldToNew.ContainsKey(Type + English))
             {
                 _Used[Type + English] = _OldToNew[Type + English];
-                return _OldToNew[Type + English];
+                return _OldToNew[Type + English].Substring(1);
             }
             else if (_EngToChi.ContainsKey(Type + English))
             {
                 _Used[Type + English] = Type + English;
-                return Type + English;
+                return English;
             }
             else
             {
@@ -184,6 +186,7 @@ namespace discuzAddonHelper
         public static void Update()
         {
             Dictionary<string, string> OldToNew = new Dictionary<string, string>(_OldToNew);
+            Dictionary<string, string> ChiToEng = new Dictionary<string, string>();
 
             _OldToNew.Clear();
             _EngToChi.Clear();
@@ -199,10 +202,12 @@ namespace discuzAddonHelper
 
                 _OldToNew[obj.Value] = English; // 将当前索引重定向到新索引
                 _EngToChi[English] = obj.Key; // 新建正向索引
-                _ChiToEng[obj.Key] = English; // 更新反向索引
+                 ChiToEng[obj.Key] = English; // 更新反向索引
 
                 AddLanguage(English, obj.Key);
             }
+
+            _ChiToEng = ChiToEng;
 
             // 更新重定向旧数据
             foreach (KeyValuePair<string, string> obj in OldToNew)
@@ -219,7 +224,8 @@ namespace discuzAddonHelper
         /// <param name="_H">Template 语言包</param>
         public static void Export(out Dictionary<string, string> _P, out Dictionary<string, string> _H)
         {
-            _P = _H = new Dictionary<string,string>();
+            _P = new Dictionary<string,string>();
+            _H = new Dictionary<string, string>();
             foreach (KeyValuePair<string, string> obj in _Used)
             {
                 switch (obj.Key[0])

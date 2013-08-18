@@ -248,7 +248,7 @@ namespace discuzAddonHelper
             {
                 if ((lang & pL.functionWork) == pL.functionWork && find > -1)
                 {
-                    if (content[i] > 0x4e00 && content[i] < 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
+                    if (content[i] >= 0x4e00 && content[i] <= 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
                     {
                         lang = lang | pL.hasChinese;
                     }
@@ -349,12 +349,11 @@ namespace discuzAddonHelper
                         else if (status == 1 && (content[i] == '\n') ||
                           status == 2 && content[i] == '*' && content[i + 1] == '/')
                         {
-                            status = 0;
-
                             _lang = _val.ToString();
                             _val.Clear();
 
-                            _addNode(tree, null, "[D]" + _lang, string.Concat("D|", find, '|', i + 1 - find, '|', _lang));
+                            _addNode(tree, null, "[D]" + _lang, string.Concat("D|", find, '|', i + (status == 2 ? 2 : 0) - find, '|', _lang));
+                            status = 0;
                         }
                         else
                         {
@@ -405,8 +404,15 @@ namespace discuzAddonHelper
                     #region 跳过字符串
                     if (quota != '-')
                     {
-                        if (content[i++] == quota)
+                        if (content[i] == '\\')
+                        {
+                            i += 1; // 跳过下一个字符
+                        }
+                        else if (content[i] == quota)
+                        {
                             quota = '-';
+                        }
+                        i++;
                         continue;
                     }
                     #endregion
@@ -657,7 +663,7 @@ namespace discuzAddonHelper
                 }
                 else
                 {
-                    if (content[i] > 0x4e00 && content[i] < 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
+                    if (content[i] >= 0x4e00 && content[i] <= 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
                     {
                         if (find == -1)
                         {
@@ -673,7 +679,7 @@ namespace discuzAddonHelper
                         _lang = _val.ToString().TrimStart();
                         _val.Clear();
 
-                        _addNode(tree, null, "[C]" + _lang, string.Concat("C|", find, '|', i + 1 - find, "||||", _lang));
+                        _addNode(tree, null, "[C]" + _lang, string.Concat("C|", find, '|', i - find, "||||", _lang));
                         find = -1;
                     }
 
@@ -703,7 +709,7 @@ namespace discuzAddonHelper
 
             while (i < l)
             {
-                if (content[i] > 0x4e00 && content[i] < 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
+                if (content[i] >= 0x4e00 && content[i] <= 0x9fff || content[i] > 0xff00 || content[i] == 0x3000)
                 {
                     if (find == -1)
                     {
