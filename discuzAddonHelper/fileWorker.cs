@@ -73,7 +73,7 @@ namespace discuzAddonHelper
 
         Encoding big5 = Encoding.GetEncoding("BIG5");
         Encoding gbk = Encoding.GetEncoding("GBK");
-        Encoding utf8 = Encoding.UTF8;
+        Encoding utf8 = new UTF8Encoding(false);
         #endregion
 
         /// <summary>
@@ -275,7 +275,7 @@ namespace discuzAddonHelper
                         enc = Encoding.GetEncoding("BIG5");
                         break;
                     default:
-                        enc = Encoding.UTF8;
+                        enc = new UTF8Encoding(false);
                         break;
                 }
 
