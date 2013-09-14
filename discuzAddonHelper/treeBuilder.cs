@@ -353,7 +353,8 @@ namespace discuzAddonHelper
                             _val.Clear();
 
                             _addNode(tree, null, "[D]" + _lang, string.Concat("D|", find, '|', i + (status == 2 ? 2 : 0) - find, '|', _lang));
-                            status = 0;
+                            i += status;
+                            status = 0; find = -1;
                         }
                         else
                         {
